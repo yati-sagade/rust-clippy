@@ -116,6 +116,54 @@ impl EarlyLintPass for NeedlessContinue {
     }
 }
 
+/* This lint has to mainly deal with two cases of needless continue statements.
+ *
+ * Case 1 [Continue inside else block]:
+ *
+ *     loop {
+ *         // region A
+ *         if cond {
+ *             // region B
+ *         } else {
+ *             continue;
+ *         }
+ *         // region C
+ *     }
+ * 
+ * This code can better be written as follows:
+ *
+ *     loop {
+ *         // region A
+ *         if cond {
+ *             // region B
+ *             // region C
+ *         }
+ *     }
+ *
+ * Case 2 [Continue inside then block]:
+ *
+ *     loop {
+ *       // region A
+ *       if cond {
+ *           continue;
+ *           // potentially more code here.
+ *       } else {
+ *           // region B
+ *       }
+ *       // region C
+ *     }
+ * 
+ * This snippet can be refactored to:
+ *
+ *     loop {
+ *       // region A
+ *       if !cond {
+ *           // region B
+ *           // region C
+ *       }
+ *     }
+ */
+
 /// Given an expression, returns true if either of the following is true
 ///
 /// - The expression is a `continue` node.
@@ -130,15 +178,15 @@ fn needless_continue_in_else(else_expr: &ast::Expr) -> bool {
 }
 
 fn is_first_block_stmt_continue(block: &ast::Block) -> bool {
-    if_let_chain! {[
-        let Some(stmt) = block.stmts.get(0),
-        let ast::StmtKind::Semi(ref e) = stmt.node,
-        let ast::ExprKind::Continue(_) = e.node,
-    ], {
-        return true;
-    }}
-
-    false
+    block.stmts.get(0).map_or(false, |stmt| match stmt.node {
+        ast::StmtKind::Semi(ref e) |
+        ast::StmtKind::Expr(ref e) => if let ast::ExprKind::Continue(_) = e.node {
+            true
+        } else {
+            false
+        },
+        _ => false,
+    })
 }
 
 /// If `expr` is a loop expression (while/while let/for/loop), calls `func` with
