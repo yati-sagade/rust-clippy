@@ -129,7 +129,7 @@ impl EarlyLintPass for NeedlessContinue {
  *         }
  *         // region C
  *     }
- * 
+ *
  * This code can better be written as follows:
  *
  *     loop {
@@ -153,6 +153,7 @@ impl EarlyLintPass for NeedlessContinue {
  *       // region C
  *     }
  * 
+ *
  * This snippet can be refactored to:
  *
  *     loop {
